@@ -45,6 +45,27 @@ func TestBlockIDCreator(t *testing.T) {
 	assert.ErrorContains(t, bic2.checkID(chunkNumber, got), "random bytes")
 }
 
+func TestCopyToken(t *testing.T) {
+	f := &Fs{}
+
+	// no limiter configured
+	require.NoError(t, f.acquireCopyToken(context.Background()))
+	f.releaseCopyToken()
+
+	// limiter configured
+	f.initCopyToken(1)
+	require.NoError(t, f.acquireCopyToken(context.Background()))
+
+	// acquiring again should respect context cancellation
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.ErrorIs(t, f.acquireCopyToken(cancelCtx), context.Canceled)
+
+	// release then re-acquire succeeds
+	f.releaseCopyToken()
+	require.NoError(t, f.acquireCopyToken(context.Background()))
+}
+
 func (f *Fs) testFeatures(t *testing.T) {
 	// Check first feature flags are set on this remote
 	enabled := f.Features().SetTier
